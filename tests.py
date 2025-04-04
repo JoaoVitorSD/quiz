@@ -145,3 +145,58 @@ def test_only_correct_choices_are_selected():
     assert eagle.id in selected_ids
     assert penguin.id not in selected_ids
     assert bat.id in selected_ids
+
+@pytest.fixture
+def europe_question():
+    question = Question(title="Which countries are in Europe?", points=5, max_selections=3)
+    question.add_choice("France", True)
+    question.add_choice("Japan", False)
+    question.add_choice("Italy", True)
+    question.add_choice("Brazil", False)
+    return question
+
+@pytest.fixture
+def capital_question():
+    question = Question(title="What is the capital of France?", points=2)
+    question.add_choice("Paris", True)
+    question.add_choice("London", False)
+    question.add_choice("Berlin", False)
+    return question
+
+def test_counts_correct_choices(europe_question):
+    correct = [c for c in europe_question.choices if c.is_correct]
+    
+    assert len(correct) == 2
+    assert correct[0].text == "France"
+    assert correct[1].text == "Italy"
+
+def test_selecting_all_correct_choices(europe_question):
+    correct_ids = [c.id for c in europe_question.choices if c.is_correct]
+    selected_ids = europe_question.select_choices(correct_ids)
+
+    assert len(selected_ids) == 2
+    assert set(selected_ids) == set(correct_ids)
+
+def test_selecting_mixed_choices_returns_only_correct(europe_question):
+    selected_ids = europe_question.select_choices([
+        europe_question.choices[0].id,
+        europe_question.choices[1].id,
+        europe_question.choices[2].id
+    ])
+    correct_ids = [c.id for c in europe_question.choices if c.is_correct]
+
+    assert set(selected_ids).issubset(set(correct_ids))
+    assert len(selected_ids) == 2
+    assert europe_question.choices[1].id not in selected_ids
+
+def test_single_choice_limit_enforced(capital_question):
+    selected_ids = [c.id for c in capital_question.choices[:2]]
+
+    with pytest.raises(Exception) as exc:
+        capital_question.select_choices(selected_ids)
+
+    assert "Cannot select more than 1 choices" in str(exc.value)
+
+def test_choice_ids_are_sequential(capital_question):
+    for index, choice in enumerate(capital_question.choices):
+        assert choice.id == index + 1
