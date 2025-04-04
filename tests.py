@@ -1,5 +1,5 @@
 import pytest
-from model import Question
+from model import Question, Choice
 
 
 def test_create_question():
@@ -34,3 +34,114 @@ def test_create_choice():
     assert len(question.choices) == 1
     assert choice.text == 'a'
     assert not choice.is_correct
+
+
+def test_add_multiple_choices():
+    question = Question(title='What is the capital of France?')
+    question.add_choice('Paris', True)
+    question.add_choice('London', False)
+    question.add_choice('Berlin', False)
+    
+    assert len(question.choices) == 3
+    assert question.choices[0].text == 'Paris'
+    assert question.choices[0].is_correct == True
+
+def test_remove_choice_by_id():
+    question = Question(title='Pick a color')
+    choice1 = question.add_choice('Red', False)
+    _ = question.add_choice('Blue', True)
+    
+    assert len(question.choices) == 2
+    question.remove_choice_by_id(choice1.id)
+    assert len(question.choices) == 1
+    assert question.choices[0].text == 'Blue'
+
+def test_remove_all_choices():
+    question = Question(title='Select a fruit')
+    question.add_choice('Apple', True)
+    question.add_choice('Banana', False)
+    question.add_choice('Orange', False)
+    
+    assert len(question.choices) == 3
+    question.remove_all_choices()
+    assert len(question.choices) == 0
+
+def test_set_correct_choices():
+    question = Question(title='Select programming languages', max_selections=2)
+    choice1 = question.add_choice('Python', False)
+    _ = question.add_choice('JavaScript', False)
+    choice3 = question.add_choice('Java', False)
+    
+    question.set_correct_choices([choice1.id, choice3.id])
+    
+    assert question.choices[0].is_correct == True
+    assert question.choices[1].is_correct == False
+    assert question.choices[2].is_correct == True
+
+
+def test_can_select_within_max_limit():
+    question = Question(title='Pick two colors', max_selections=2)
+    red = question.add_choice('Red', True)
+    blue = question.add_choice('Blue', False)
+    green = question.add_choice('Green', True)
+
+    selected_ids = question.select_choices([red.id, green.id])
+
+    assert len(selected_ids) == 2
+    assert red.id in selected_ids
+    assert green.id in selected_ids
+
+def test_raises_when_selection_exceeds_max_limit():
+    question = Question(title='Pick one number', max_selections=1)
+    one = question.add_choice('One', True)
+    two = question.add_choice('Two', False)
+    three = question.add_choice('Three', True)
+
+    with pytest.raises(Exception) as exc:
+        question.select_choices([one.id, three.id])
+    
+    assert "Cannot select more than 1 choices" in str(exc.value)
+
+def test_removing_invalid_choice_raises_exception():
+    question = Question(title='Pick a continent')
+    europe = question.add_choice('Europe', True)
+
+    with pytest.raises(Exception) as exc:
+        question.remove_choice_by_id(999) 
+
+    assert "Invalid choice id" in str(exc.value)
+
+def test_choice_text_validation():
+    with pytest.raises(Exception) as exc:
+        Choice(id=1, text='')
+
+    assert "Text cannot be empty" in str(exc.value)
+
+    with pytest.raises(Exception) as exc:
+        Choice(id=1, text='x' * 101)
+
+    assert "Text cannot be longer than 100 characters" in str(exc.value)
+
+def test_question_points_must_be_valid():
+    with pytest.raises(Exception) as exc:
+        Question(title='Invalid points low', points=0)
+
+    assert "Points must be between 1 and 100" in str(exc.value)
+
+    with pytest.raises(Exception) as exc:
+        Question(title='Invalid points high', points=101)
+
+    assert "Points must be between 1 and 100" in str(exc.value)
+
+def test_only_correct_choices_are_selected():
+    question = Question(title='Select animals that can fly', max_selections=3)
+    eagle = question.add_choice('Eagle', True)
+    penguin = question.add_choice('Penguin', False)
+    bat = question.add_choice('Bat', True)
+
+    selected_ids = question.select_choices([eagle.id, penguin.id, bat.id])
+
+    assert len(selected_ids) == 2
+    assert eagle.id in selected_ids
+    assert penguin.id not in selected_ids
+    assert bat.id in selected_ids
